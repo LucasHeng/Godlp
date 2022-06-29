@@ -2,11 +2,17 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"fmt"
+
+	"log"
+	"net"
 	"strings"
 
 	dlp "github.com/bytedance/godlp"
 	"github.com/bytedance/godlp/dlpheader"
+	"github.com/bytedance/godlp/rpcpb/rpcpb"
+	"google.golang.org/grpc"
 )
 
 func dupString(src string, coefficient int) string {
@@ -17,7 +23,7 @@ func dupString(src string, coefficient int) string {
 	return buffer.String()
 }
 
-func dlpDemo() {
+func dlpDemo(input string) {
 	caller := "replace.your.caller"
 	// 使用时请将NewEngine()放到循环外，每个线程独立一个Engine Object
 	// remove NewEngein() outside for loop, and one Engine Object one thread/goroutin
@@ -176,6 +182,47 @@ mac地址 06-06-06-aa-bb-cc
 	}
 }
 
+type rpcServer struct {
+	rpcpb.UnimplementedDlpServiceServer
+}
+
+func dlptest(inStr string) string {
+	caller := "replace.your.caller"
+	if eng, err := dlp.NewEngine(caller); err == nil {
+		eng.ApplyConfigDefault()
+		fmt.Printf("DLP %s Demo:\n\n", eng.GetVersion())
+		if results, err := eng.Detect(inStr); err == nil {
+			fmt.Printf("\t1. Detect( inStr: %s )\n", inStr)
+			eng.ShowResults(results)
+		}
+		if outStr, _, err := eng.Deidentify(inStr); err == nil {
+			fmt.Printf("\t2. Deidentify( inStr: %s )\n", inStr)
+			fmt.Printf("\toutStr: %s\n", outStr)
+			//eng.ShowResults(results)
+			fmt.Println()
+			return outStr
+		}
+	}
+	return ""
+}
+
+func (r rpcServer) Dlp(ctx context.Context, req *rpcpb.Intext) (res *rpcpb.Outtext, err error) {
+	log.Println(req.GetMsg())
+
+	output := dlptest(req.Msg)
+
+	return &rpcpb.Outtext{
+		Msg: output,
+	}, nil
+}
+
 func main() {
-	dlpDemo()
+	// dlpDemo()
+	l, err := net.Listen("tcp", ":10086")
+	if err != nil {
+		panic(err)
+	}
+	s := grpc.NewServer()
+	rpcpb.RegisterDlpServiceServer(s, &rpcServer{})
+	s.Serve(l)
 }

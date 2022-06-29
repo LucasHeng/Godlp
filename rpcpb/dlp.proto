@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+package rpcpb; 
+option go_package="./rpcpb";   // pb是生成.go文件的package名
+
+service DlpService{
+  rpc Dlp(intext) returns(outtext);
+}
+
+message intext {
+  string msg = 1;
+}
+
+message outtext{
+  string  msg = 1;
+}
